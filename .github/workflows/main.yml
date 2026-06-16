@@ -28,6 +28,9 @@ jobs:
         with:
           tool: cross
 
+      - name: Update Cargo.lock
+        run: cargo update
+
       - name: Build
         shell: bash
         run: |
