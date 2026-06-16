@@ -1,0 +1,32 @@
+#!/bin/sh /etc/rc.common
+
+# MiniPanel procd init 脚本 (OpenWrt)
+# 安装方法:
+#   1. 将本文件复制到 /etc/init.d/minipanel
+#   2. chmod +x /etc/init.d/minipanel
+#   3. /etc/init.d/minipanel enable
+#   4. /etc/init.d/minipanel start
+
+START=99
+STOP=10
+
+USE_PROCD=1
+PROG=/usr/bin/minipanel
+DATA_DIR=/etc/minipanel
+
+start_service() {
+    mkdir -p "${DATA_DIR}"
+    mkdir -p "${DATA_DIR}/logs"
+
+    procd_open_instance minipanel
+    procd_set_param command "${PROG}"
+    procd_set_param env MINIPANEL_DATA_DIR="${DATA_DIR}"
+    procd_set_param stdout 1
+    procd_set_param stderr 1
+    procd_set_param respawn
+    procd_close_instance
+}
+
+stop_service() {
+    killall -q minipanel
+}

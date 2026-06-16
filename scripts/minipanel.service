@@ -1,0 +1,15 @@
+[Unit]
+Description=MiniPanel - Lightweight Program Management Panel
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+Environment="MINIPANEL_DATA_DIR=/opt/minipanel/data"
+ExecStart=/usr/local/bin/minipanel
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
