@@ -76,15 +76,45 @@ async fn main() -> anyhow::Result<()> {
 
     #[cfg(feature = "tls")]
     if cert_path.exists() && key_path.exists() {
-        info!("Starting HTTPS server on {}", addr);
-        let rustls_config = axum_server::tls_rustls::RustlsConfig::from_pem_file(&cert_path, &key_path)
-            .await
-            .map_err(|e| anyhow::anyhow!("TLS config error: {}", e))?;
+        use std::fs::File;
+        use std::io::BufReader as StdBufReader;
+        use std::sync::Arc;
+        use tokio::net::TcpListener;
+        use tokio_rustls::TlsAcceptor;
 
-        axum_server::bind_rustls(addr, rustls_config)
-            .serve(app.into_make_service())
-            .await?;
-        return Ok(());
+        let certs: Vec<_> = rustls_pemfile::certs(&mut StdBufReader::new(File::open(&cert_path)?))
+            .filter_map(|c| c.ok())
+            .collect();
+        let key = rustls_pemfile::private_key(&mut StdBufReader::new(File::open(&key_path)?))
+            .map_err(|e| anyhow::anyhow!("Failed to read private key: {}", e))?
+            .ok_or_else(|| anyhow::anyhow!("No private key found"))?;
+        let config = rustls::ServerConfig::builder()
+            .with_no_client_auth()
+            .with_single_cert(certs, key)
+            .map_err(|e| anyhow::anyhow!("TLS config error: {}", e))?;
+        let acceptor = TlsAcceptor::from(Arc::new(config));
+
+        let listener = TcpListener::bind(addr).await?;
+        info!("Starting HTTPS server on {}", addr);
+
+        loop {
+            let (stream, _) = listener.accept().await?;
+            let acceptor = acceptor.clone();
+            let service = app.clone();
+            tokio::spawn(async move {
+                let Ok(stream) = acceptor.accept(stream).await else { return };
+                let io = hyper_util::rt::TokioIo::new(stream);
+                let service = hyper::service::service_fn(move |req| {
+                    let service = service.clone();
+                    async move {
+                        Ok::<_, std::convert::Infallible>(service.oneshot(req).await)
+                    }
+                });
+                let _ = hyper::server::conn::http1::Builder::new()
+                    .serve_connection(io, service)
+                    .await;
+            });
+        }
     }
 
     warn!("No TLS certificate found, falling back to HTTP");
