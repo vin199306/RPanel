@@ -28,9 +28,6 @@ jobs:
         with:
           tool: cross
 
-      - name: Clean old lockfile
-        run: rm -f Cargo.lock
-
       - name: Build
         shell: bash
         run: |
