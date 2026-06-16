@@ -9,21 +9,9 @@ jobs:
     strategy:
       matrix:
         include:
-          - target: x86_64-unknown-linux-musl
-            output: minipanel-x86_64-linux-musl
-            features: tls
           - target: aarch64-unknown-linux-musl
             output: minipanel-aarch64-linux-musl
             features: tls
-          - target: armv7-unknown-linux-musleabihf
-            output: minipanel-armv7-linux-musleabihf
-            features: tls
-          - target: mips-unknown-linux-musl
-            output: minipanel-mips-linux-musl
-            features: ""
-          - target: mipsel-unknown-linux-musl
-            output: minipanel-mipsel-linux-musl
-            features: ""
 
     steps:
       - uses: actions/checkout@v4
