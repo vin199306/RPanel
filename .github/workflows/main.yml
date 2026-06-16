@@ -28,8 +28,8 @@ jobs:
         with:
           tool: cross
 
-      - name: Update Cargo.lock
-        run: cargo update
+      - name: Clean old lockfile
+        run: rm -f Cargo.lock
 
       - name: Build
         shell: bash
