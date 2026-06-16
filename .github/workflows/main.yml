@@ -1,0 +1,90 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-musl
+            output: minipanel-x86_64-linux-musl
+            features: tls
+          - target: aarch64-unknown-linux-musl
+            output: minipanel-aarch64-linux-musl
+            features: tls
+          - target: armv7-unknown-linux-musleabihf
+            output: minipanel-armv7-linux-musleabihf
+            features: tls
+          - target: mips-unknown-linux-musl
+            output: minipanel-mips-linux-musl
+            features: ""
+          - target: mipsel-unknown-linux-musl
+            output: minipanel-mipsel-linux-musl
+            features: ""
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install cross
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cross
+
+      - name: Build
+        shell: bash
+        run: |
+          if [ -n "${{ matrix.features }}" ]; then
+            cross build --release --target ${{ matrix.target }} --features ${{ matrix.features }}
+          else
+            cross build --release --target ${{ matrix.target }} --no-default-features
+          fi
+
+      - name: Package
+        shell: bash
+        run: |
+          mkdir -p release
+          cp target/${{ matrix.target }}/release/minipanel release/${{ matrix.output }}
+          # 尝试 strip（某些交叉工具链的 strip 可能不可用）
+          strip release/${{ matrix.output }} || \
+            ${{ matrix.target }}-strip release/${{ matrix.output }} || \
+            true
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.output }}
+          path: release/${{ matrix.output }}
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release
+          pattern: minipanel-*
+          merge-multiple: true
+
+      - name: Display artifacts
+        run: ls -lh release/
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release/*
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
